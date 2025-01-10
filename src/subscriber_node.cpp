@@ -24,30 +24,58 @@ class FastLIOListener : public rclcpp::Node
 public:
     FastLIOListener() : Node("fast_lio_listener"), repeat_count_(0)
     {
-        subscription_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            topic_name_,
+        subscription_crb_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            topic_name_crb_,
             5,
-            std::bind(&FastLIOListener::callback, this, std::placeholders::_1));
+            std::bind(&FastLIOListener::callback_cloud_registered_body, this, std::placeholders::_1));
+
+        subscription_lm_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+            topic_name_lm_,
+            5,
+            std::bind(&FastLIOListener::callback_laser_map, this, std::placeholders::_1));
     }
 
 private:
-    void callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    void callback_cloud_registered_body(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
-        repeat_count_++;
+        // repeat_count_++;
+        std::string topic_name = topic_name_crb_;
 
         if (!msg)
         {
-            RCLCPP_WARN(this->get_logger(), "Received NULL pointcloud message!");
+            RCLCPP_WARN(this->get_logger(), "/cloud_registered_body received NULL pointcloud message!");
             return;
         }
 
-        RCLCPP_INFO(this->get_logger(), "Received pointcloud num: %d", msg->width * msg->height);
+        RCLCPP_INFO(this->get_logger(), "/cloud_registered_body received pointcloud num: %d", msg->width * msg->height);
 
-        if (repeat_count_ % 30 == 0)
+        // if (repeat_count_ % 30 == 0)
+        // {
+        //     save_pointcloud(msg, topic_name);
+        //     return;
+        // }
+        // save_pointcloud(msg, topic_name);
+    }
+
+    void callback_laser_map(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    {
+        // repeat_count_++;
+        std::string topic_name = topic_name_lm_;
+
+        if (!msg)
         {
-            save_pointcloud(msg);
+            RCLCPP_WARN(this->get_logger(), "/Laser_map received NULL pointcloud message!");
             return;
         }
+
+        RCLCPP_INFO(this->get_logger(), "/Laser_map received pointcloud num: %d", msg->width * msg->height);
+
+        // if (repeat_count_ % 30 == 0)
+        // {
+        //     save_pointcloud(msg, topic_name);
+        //     return;
+        // }
+        // save_pointcloud(msg, topic_name);
     }
 
     void voxelization(std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> &cloud, std::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> &pcl_downsampled_cloud)
@@ -75,7 +103,7 @@ private:
         }
     }
 
-    void save_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+    void save_pointcloud(const sensor_msgs::msg::PointCloud2::SharedPtr msg, std::string topic_name)
     {
         auto cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
         auto pcl_downsampled_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
@@ -83,7 +111,7 @@ private:
 
         voxelization(cloud, pcl_downsampled_cloud);
 
-        std::string file_name = "/home/kenji/pcd_data/fast-lio2/cloud_registered_body/" + topic_name_ + "_" + std::to_string(repeat_count_) + ".pcd";
+        std::string file_name = "/home/kenji/pcd_data/fast-lio2/" + topic_name + "/" + topic_name + "_" + std::to_string(repeat_count_) + ".pcd";
         if (pcl::io::savePCDFileASCII(file_name, *cloud) == -1)
         {
             RCLCPP_WARN(this->get_logger(), "Couldn't save pointcloud to %s", file_name.c_str());
@@ -93,10 +121,12 @@ private:
         RCLCPP_INFO(this->get_logger(), "Saved pointcloud to %s", file_name.c_str());
     }
 
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_crb_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subscription_lm_;
     size_t repeat_count_;
     // std::string topic_name_ = "Laser_map";
-    std::string topic_name_ = "cloud_registered_body";
+    std::string topic_name_crb_ = "cloud_registered_body";
+    std::string topic_name_lm_ = "Laser_map";
 };
 
 int main(int argc, char **argv)
